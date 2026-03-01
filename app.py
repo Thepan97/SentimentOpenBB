@@ -16,11 +16,11 @@ app.add_middleware(
 
 analyzer = SentimentIntensityAnalyzer()
 
-def _empty_table(message: str | None = None):
+def _table(rows, message: str | None = None):
     payload = {
         "table_data": {
             "name": "Sentiment Results",
-            "data": [],
+            "data": rows,
         }
     }
     if message:
@@ -31,7 +31,7 @@ def _empty_table(message: str | None = None):
 def sentiment(q: str = "AAPL", page_size: int = 20):
     api_key = os.getenv("NEWSAPI_KEY")
     if not api_key:
-        return _empty_table("Missing NEWSAPI_KEY")
+        return _table([], "Missing NEWSAPI_KEY")
 
     url = "https://newsapi.org/v2/everything"
     params = {
@@ -47,27 +47,33 @@ def sentiment(q: str = "AAPL", page_size: int = 20):
         r.raise_for_status()
         data = r.json()
     except Exception as e:
-        return _empty_table(f"NewsAPI request failed: {str(e)}")
+        return _table([], f"NewsAPI request failed: {str(e)}")
 
     if data.get("status") != "ok":
-        return _empty_table(f"NewsAPI error: {data.get('message', 'unknown error')}")
+        return _table([], f"NewsAPI error: {data.get('message', 'unknown error')}")
 
     articles = data.get("articles", [])
     df = pd.DataFrame(articles)
 
     if df.empty:
-        return _empty_table("No articles returned for this query")
+        return _table([], "No articles returned for this query")
 
-    df["sentiment"] = df["title"].fillna("").apply(
+    # Safe publisher extraction
+    df["publisher"] = df["source"].apply(lambda s: (s or {}).get("name") if isinstance(s, dict) else None)
+
+    # Sentiment
+    df["sentiment"] = df["title"].fillna("").astype(str).apply(
         lambda t: analyzer.polarity_scores(t)["compound"]
     )
 
-    out = df[["publishedAt", "title", "sentiment"]].copy()
-    out["source"] = df["source"].apply(lambda s: (s or {}).get("name"))
+    out = pd.DataFrame({
+        "published_at": df.get("publishedAt"),
+        "title": df.get("title"),
+        "publisher": df.get("publisher"),
+        "sentiment": df.get("sentiment"),
+    })
 
-    return {
-        "table_data": {
-            "name": "Sentiment Results",
-            "data": out.to_dict(orient="records"),
-        }
-    }
+    # Replace NaN with None so JSON is clean
+    out = out.where(pd.notna(out), None)
+
+    return _table(out.to_dict(orient="records"))
