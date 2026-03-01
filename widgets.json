@@ -1,0 +1,40 @@
+{
+  "news_sentiment_table": {
+    "name": "News Sentiment",
+    "description": "NewsAPI headlines with VADER sentiment",
+    "category": "Custom",
+    "type": "table",
+    "endpoint": "sentiment",
+    "gridData": { "w": 20, "h": 10 },
+    "params": [
+      {
+        "paramName": "q",
+        "value": "AAPL",
+        "label": "Query",
+        "description": "Ticker or keyword",
+        "type": "text"
+      },
+      {
+        "paramName": "page_size",
+        "value": 20,
+        "label": "Page Size",
+        "description": "Number of articles",
+        "type": "number"
+      }
+    ],
+    "data": {
+      "table": {
+        "showAll": true,
+        "enableCharts": false,
+        "enableAdvanced": true,
+        "enableFormulas": true,
+        "columnsDefs": [
+          { "field": "published_at", "headerName": "Published", "cellDataType": "dateString" },
+          { "field": "title", "headerName": "Title", "cellDataType": "text" },
+          { "field": "publisher", "headerName": "Publisher", "cellDataType": "text" },
+          { "field": "sentiment", "headerName": "Sentiment", "cellDataType": "number" }
+        ]
+      }
+    }
+  }
+}
