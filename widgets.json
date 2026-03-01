@@ -1,4 +1,3 @@
-// widgets.json
 {
   "news_sentiment_table": {
     "name": "News Sentiment",
@@ -8,8 +7,20 @@
     "endpoint": "sentiment",
     "gridData": { "w": 20, "h": 10 },
     "params": [
-      { "name": "q", "label": "Query", "type": "text", "default": "AAPL" },
-      { "name": "page_size", "label": "Page Size", "type": "number", "default": 20 }
+      {
+        "paramName": "q",
+        "label": "Query",
+        "description": "Ticker or keyword (e.g., AAPL, TSLA)",
+        "type": "text",
+        "value": "AAPL"
+      },
+      {
+        "paramName": "page_size",
+        "label": "Page Size",
+        "description": "Number of articles to fetch",
+        "type": "number",
+        "value": 20
+      }
     ],
     "data": {
       "table": {
