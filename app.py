@@ -46,4 +46,9 @@ def sentiment(q: str = "AAPL", page_size: int = 20):
     out = df[["publishedAt", "title", "sentiment"]].copy()
     out["source"] = df["source"].apply(lambda s: (s or {}).get("name"))
 
-    return out.to_dict(orient="records")
+    return {
+        "table_data": {
+            "name": "Sentiment Results",
+            "data": out.to_dict(orient="records"),
+        }
+    }
