@@ -1,9 +1,7 @@
-# main.py
+# app.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pathlib import Path
-import json
 import os
 import requests
 import pandas as pd
@@ -11,34 +9,55 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 app = FastAPI(title="SentimentOpenBB", version="0.0.1")
 
-# CORS: allow OpenBB Pro to call your backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://pro.openbb.co", "https://app.openbb.co", "*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 analyzer = SentimentIntensityAnalyzer()
 
+WIDGETS = {
+    "news_sentiment_table": {
+        "name": "News Sentiment",
+        "description": "NewsAPI headlines with VADER sentiment",
+        "category": "Custom",
+        "type": "table",
+        "endpoint": "sentiment",
+        "gridData": {"w": 20, "h": 10},
+        "params": [
+            {"name": "q", "label": "Query", "type": "text", "default": "AAPL"},
+            {"name": "page_size", "label": "Page Size", "type": "number", "default": 20},
+        ],
+        "data": {
+            "table": {
+                "showAll": True,
+                "enableCharts": False,
+                "enableAdvanced": True,
+                "enableFormulas": True,
+                "columnsDefs": [
+                    {"field": "published_at", "headerName": "Published", "cellDataType": "dateString"},
+                    {"field": "title", "headerName": "Title", "cellDataType": "text"},
+                    {"field": "publisher", "headerName": "Publisher", "cellDataType": "text"},
+                    {"field": "sentiment", "headerName": "Sentiment", "cellDataType": "number"},
+                ],
+            }
+        },
+    }
+}
 
 @app.get("/")
 def root():
-    return {"info": "SentimentOpenBB backend is running"}
-
+    return {"ok": True}
 
 @app.get("/widgets.json")
 def widgets():
-    path = Path(__file__).parent / "widgets.json"
-    return JSONResponse(content=json.loads(path.read_text(encoding="utf-8")))
-
+    return JSONResponse(content=WIDGETS)
 
 @app.get("/apps.json")
 def apps():
-    path = Path(__file__).parent / "apps.json"
-    return JSONResponse(content=json.loads(path.read_text(encoding="utf-8")))
-
+    return JSONResponse(content=[])
 
 @app.get("/sentiment")
 def sentiment(q: str = "AAPL", page_size: int = 20):
@@ -47,12 +66,7 @@ def sentiment(q: str = "AAPL", page_size: int = 20):
         return []
 
     url = "https://newsapi.org/v2/everything"
-    params = {
-        "q": q,
-        "language": "en",
-        "sortBy": "publishedAt",
-        "pageSize": page_size,
-    }
+    params = {"q": q, "language": "en", "sortBy": "publishedAt", "pageSize": page_size}
     headers = {"X-Api-Key": api_key}
 
     try:
@@ -65,21 +79,15 @@ def sentiment(q: str = "AAPL", page_size: int = 20):
     if data.get("status") != "ok":
         return []
 
-    articles = data.get("articles", [])
-    df = pd.DataFrame(articles)
+    df = pd.DataFrame(data.get("articles", []))
     if df.empty:
         return []
 
-    # Flatten + clean
     df["publisher"] = df["source"].apply(
         lambda s: (s or {}).get("name") if isinstance(s, dict) else None
     )
     df["title"] = df["title"].fillna("").astype(str)
-
-    # Sentiment
-    df["sentiment"] = df["title"].apply(
-        lambda t: analyzer.polarity_scores(t)["compound"]
-    )
+    df["sentiment"] = df["title"].apply(lambda t: analyzer.polarity_scores(t)["compound"])
 
     out = pd.DataFrame(
         {
@@ -90,7 +98,5 @@ def sentiment(q: str = "AAPL", page_size: int = 20):
         }
     )
 
-    # Ensure JSON-safe nulls (no NaN)
     out = out.where(pd.notna(out), None)
-
     return out.to_dict(orient="records")
